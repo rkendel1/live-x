@@ -1,7 +1,7 @@
 {
-  "baseUrl": "https://play.example.com",
+  "baseUrl": "https://live-x-nine.vercel.app",
   "siteName": "My Interactive Posts",
-  "xHandle": "@yourhandle",
+  "xHandle": "@facinatedbytech",
   "defaults": {
     "width": 480,
     "height": 480,
