@@ -9,7 +9,8 @@
     "dev": "node scripts/serve.js",
     "new": "node scripts/new.js",
     "check": "node scripts/check.js",
-    "poster": "node scripts/poster.js"
+    "poster": "node scripts/poster.js",
+    "test": "node --test"
   },
   "engines": { "node": ">=18" }
 }
