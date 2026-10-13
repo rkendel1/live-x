@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Gravity Garden</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #07070c;
+               touch-action: none; user-select: none; -webkit-user-select: none; }
+  canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
+  .hud { position: absolute; left: 12px; bottom: 10px; right: 12px; display: flex; justify-content: space-between;
+         align-items: center; font: 600 12px/1 system-ui, sans-serif; color: rgb(255 255 255 / .6); pointer-events: none; }
+  .hud button { pointer-events: auto; font: inherit; color: #fff; background: rgb(255 255 255 / .1);
+                border: 1px solid rgb(255 255 255 / .18); border-radius: 999px; padding: 7px 12px; cursor: pointer; }
+  .hint { transition: opacity .6s; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div class="hud"><span class="hint" id="hint">Tap: plant a star · Drag: fling a comet</span><button id="clear" type="button">Clear</button></div>
+<script>
+(function () {
+  var c = document.getElementById('c'), ctx = c.getContext('2d');
+  var W = 0, H = 0, DPR = 1;
+  var stars = [], comets = [];
+  var G = 4000000, SOFT = 400, MAX_COMETS = 140;
+  var hues = [18, 36, 200, 280, 330, 160];
+
+  function resize() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = innerWidth; H = innerHeight;
+    c.width = W * DPR; c.height = H * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.fillStyle = '#07070c'; ctx.fillRect(0, 0, W, H);
+  }
+  addEventListener('resize', resize); resize();
+
+  function addStar(x, y) { stars.push({ x: x, y: y, m: 1 + Math.random() * 0.8, hue: hues[stars.length % hues.length], t: 0 }); if (stars.length > 7) stars.shift(); }
+  function addComet(x, y, vx, vy, hue) {
+    comets.push({ x: x, y: y, vx: vx, vy: vy, hue: hue == null ? Math.random() * 360 : hue, life: 1 });
+    if (comets.length > MAX_COMETS) comets.shift();
+  }
+
+  // Seed a pleasant starting scene so the poster and first frame look alive.
+  function seed() {
+    stars = []; comets = [];
+    addStar(W * 0.38, H * 0.45); addStar(W * 0.64, H * 0.56);
+    for (var i = 0; i < 46; i++) {
+      var a = Math.random() * Math.PI * 2, r = Math.min(W, H) * (0.18 + Math.random() * 0.25);
+      var s = stars[i % 2], sp = Math.sqrt(G * s.m / r) * 0.95;
+      addComet(s.x + Math.cos(a) * r, s.y + Math.sin(a) * r, -Math.sin(a) * sp, Math.cos(a) * sp, s.hue + Math.random() * 40 - 20);
+    }
+  }
+  seed();
+
+  // Input: tap = star, drag = comet with velocity
+  var down = null, hint = document.getElementById('hint'), interacted = false;
+  function pt(e) { var r = c.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top, t: performance.now() }; }
+  c.addEventListener('pointerdown', function (e) { c.setPointerCapture(e.pointerId); down = pt(e); down.path = [down]; });
+  c.addEventListener('pointermove', function (e) {
+    if (!down) return; var p = pt(e); down.path.push(p); if (down.path.length > 6) down.path.shift();
+    if (Math.hypot(p.x - down.x, p.y - down.y) > 12 && Math.random() < 0.5) {
+      var a = down.path[0]; var dt = Math.max(16, p.t - a.t) / 1000;
+      addComet(p.x, p.y, (p.x - a.x) / dt * 0.35, (p.y - a.y) / dt * 0.35);
+    }
+  });
+  c.addEventListener('pointerup', function (e) {
+    if (!down) return; var p = pt(e);
+    if (Math.hypot(p.x - down.x, p.y - down.y) < 10) addStar(p.x, p.y);
+    else { var a = down.path[0]; var dt = Math.max(16, p.t - a.t) / 1000;
+      for (var i = 0; i < 6; i++) addComet(p.x, p.y, (p.x - a.x) / dt * 0.35 + (Math.random() - .5) * 30, (p.y - a.y) / dt * 0.35 + (Math.random() - .5) * 30); }
+    down = null;
+    if (!interacted) { interacted = true; hint.style.opacity = 0; XEmbed.track('first-interaction'); }
+  });
+  c.addEventListener('pointercancel', function () { down = null; });
+  document.getElementById('clear').onclick = function () { stars = []; comets = []; ctx.fillStyle = '#07070c'; ctx.fillRect(0, 0, W, H); };
+
+  var last = performance.now(), running = true;
+  document.addEventListener('visibilitychange', function () { running = !document.hidden; last = performance.now(); if (running) requestAnimationFrame(frame); });
+
+  function frame(now) {
+    if (!running) return;
+    var dt = Math.min(0.033, (now - last) / 1000); last = now;
+    // fade for trails
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = 'rgba(7,7,12,0.12)'; ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'lighter';
+
+    for (var i = comets.length - 1; i >= 0; i--) {
+      var k = comets[i], ax = 0, ay = 0;
+      for (var j = 0; j < stars.length; j++) {
+        var s = stars[j], dx = s.x - k.x, dy = s.y - k.y, d2 = dx * dx + dy * dy + SOFT;
+        var f = G * s.m / d2, inv = 1 / Math.sqrt(d2);
+        ax += dx * inv * f; ay += dy * inv * f;
+      }
+      var px = k.x, py = k.y;
+      k.vx += ax * dt; k.vy += ay * dt;
+      k.x += k.vx * dt; k.y += k.vy * dt;
+      if (k.x < -W || k.x > 2 * W || k.y < -H || k.y > 2 * H) { comets.splice(i, 1); continue; }
+      var sp = Math.min(1, Math.hypot(k.vx, k.vy) / 400);
+      ctx.strokeStyle = 'hsla(' + k.hue + ',95%,' + (52 + sp * 20) + '%,0.85)';
+      ctx.lineWidth = 1.6;
+      ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(k.x, k.y); ctx.stroke();
+    }
+
+    for (var j2 = 0; j2 < stars.length; j2++) {
+      var st = stars[j2]; st.t += dt;
+      var r = 5 + st.m * 3 + Math.sin(st.t * 3) * 1.2;
+      var g = ctx.createRadialGradient(st.x, st.y, 0, st.x, st.y, r * 5);
+      g.addColorStop(0, 'hsla(' + st.hue + ',100%,85%,0.9)');
+      g.addColorStop(0.25, 'hsla(' + st.hue + ',100%,60%,0.35)');
+      g.addColorStop(1, 'hsla(' + st.hue + ',100%,50%,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(st.x, st.y, r * 5, 0, Math.PI * 2); ctx.fill();
+    }
+    // keep the garden alive if it empties out
+    if (stars.length && comets.length < 20 && Math.random() < 0.15) {
+      var s0 = stars[(Math.random() * stars.length) | 0], a0 = Math.random() * Math.PI * 2, r0 = 60 + Math.random() * 120, sp0 = Math.sqrt(G * s0.m / r0);
+      addComet(s0.x + Math.cos(a0) * r0, s0.y + Math.sin(a0) * r0, -Math.sin(a0) * sp0, Math.cos(a0) * sp0, s0.hue);
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  XEmbed.ready();
+})();
+</script>
+</body>
+</html>

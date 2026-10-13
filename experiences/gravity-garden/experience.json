@@ -1,0 +1,10 @@
+{
+  "title": "Gravity Garden",
+  "description": "Tap to plant a star. Drag to fling comets. Everything bends around everything else.",
+  "width": 480,
+  "height": 480,
+  "accent": "#ff7a45",
+  "imageAlt": "Glowing orbital trails around small stars on a dark field",
+  "posterDelayMs": 2500,
+  "fit": "fill"
+}

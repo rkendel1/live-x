@@ -1,0 +1,10 @@
+{
+  "baseUrl": "https://play.example.com",
+  "siteName": "My Interactive Posts",
+  "xHandle": "@yourhandle",
+  "defaults": {
+    "width": 480,
+    "height": 480,
+    "accent": "#7c5cff"
+  }
+}

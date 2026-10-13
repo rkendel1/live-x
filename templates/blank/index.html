@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{TITLE}}</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #101018; color: #f2f2f7;
+               font: 16px/1.4 system-ui, sans-serif; touch-action: none; user-select: none; }
+  body { display: grid; place-items: center; }
+  button { font: inherit; padding: 14px 22px; border-radius: 999px; border: 0; background: #7c5cff; color: #fff; }
+</style>
+</head>
+<body>
+  <!-- Your experience goes here. Everything in this folder is copied to the app/ directory. -->
+  <button id="b">Tapped 0 times</button>
+<script>
+  // XEmbed is injected by the build. XEmbed.inCard is true when running inside the post.
+  var n = XEmbed.storage.get('taps', 0);
+  var b = document.getElementById('b');
+  b.textContent = 'Tapped ' + n + ' times';
+  b.onclick = function () { n++; XEmbed.storage.set('taps', n); b.textContent = 'Tapped ' + n + ' times'; };
+  XEmbed.ready(); // hide the player's loader
+</script>
+</body>
+</html>

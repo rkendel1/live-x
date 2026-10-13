@@ -1,0 +1,8 @@
+{
+  "title": "What $200 a month becomes",
+  "description": "Drag the sliders: monthly amount, return, and years. See how much is you vs. compounding.",
+  "width": 480,
+  "height": 480,
+  "accent": "#1fa971",
+  "imageAlt": "Stacked area chart of contributions versus compound growth over 30 years"
+}

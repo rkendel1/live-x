@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>What $200 a month becomes</title>
+<style>
+  :root { --bg: #0d1412; --fg: #eef5f1; --mut: #8aa39a; --you: #5b7cfa; --growth: #1fa971; --line: rgb(255 255 255 / .08); }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--fg);
+               font: 13px/1.3 system-ui, -apple-system, "Segoe UI", sans-serif; user-select: none; -webkit-user-select: none; }
+  .wrap { box-sizing: border-box; height: 100%; display: grid; grid-template-rows: auto 1fr auto; gap: 12px; padding: 18px 20px 16px; }
+  .head { padding-right: 36px; display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
+  .total { font-size: 40px; font-weight: 750; letter-spacing: -.02em; font-variant-numeric: tabular-nums; line-height: 1; }
+  .sub { color: var(--mut); font-size: 14px; margin-top: 6px; }
+  .split { display: grid; gap: 6px; font-size: 14px; font-variant-numeric: tabular-nums; text-align: right; }
+  .split div { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+  .split span.l { color: var(--mut); }
+  .dot { width: 10px; height: 10px; border-radius: 3px; }
+  .controls { display: grid; gap: 8px; }
+  label { display: grid; grid-template-columns: 1fr auto; row-gap: 2px; font-weight: 600; font-size: 15px; }
+  label output { font-variant-numeric: tabular-nums; color: var(--fg); font-weight: 700; }
+  input[type=range] { grid-column: 1 / -1; width: 100%; margin: 0; height: 30px; accent-color: var(--growth); touch-action: pan-y; }
+  .chart { position: relative; min-height: 0; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head">
+    <div><div class="total" id="total">$0</div><div class="sub" id="subline">after 30 years</div></div>
+    <div class="split">
+      <div><span class="dot" style="background:var(--you)"></span><span id="you">$0</span> <span class="l">you put in</span></div>
+      <div><span class="dot" style="background:var(--growth)"></span><span id="grow">$0</span> <span class="l">growth</span></div>
+    </div>
+  </div>
+  <div class="chart"><canvas id="c" aria-label="Chart of contributions versus growth over time"></canvas></div>
+  <div class="controls">
+    <label>Monthly <output id="mo">$200</output><input id="m" type="range" min="25" max="2000" step="25" value="200"></label>
+    <label>Annual return <output id="ro">7%</output><input id="r" type="range" min="0" max="12" step="0.5" value="7"></label>
+    <label>Years <output id="yo">30</output><input id="y" type="range" min="1" max="50" step="1" value="30"></label>
+  </div>
+</div>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var m = $('m'), r = $('r'), y = $('y'), c = $('c'), ctx = c.getContext('2d');
+  var fmt = function (v) {
+    if (v >= 1e6) return '$' + (v / 1e6).toFixed(v >= 1e7 ? 1 : 2) + 'M';
+    return '$' + Math.round(v).toLocaleString('en-US');
+  };
+  var saved = XEmbed.storage.get('compound', null);
+  if (saved) { m.value = saved.m; r.value = saved.r; y.value = saved.y; }
+
+  function series() {
+    var mo = +m.value, rate = +r.value / 100 / 12, yrs = +y.value, bal = 0, paid = 0, pts = [{ paid: 0, bal: 0 }];
+    for (var i = 1; i <= yrs * 12; i++) {
+      bal = bal * (1 + rate) + mo; paid += mo;
+      if (i % 12 === 0) pts.push({ paid: paid, bal: bal });
+    }
+    return pts;
+  }
+
+  function draw() {
+    var pts = series(), last = pts[pts.length - 1];
+    $('total').textContent = fmt(last.bal);
+    $('subline').textContent = 'after ' + y.value + ' year' + (y.value === '1' ? '' : 's');
+    $('you').textContent = fmt(last.paid);
+    $('grow').textContent = fmt(last.bal - last.paid);
+    $('mo').textContent = '$' + (+m.value).toLocaleString('en-US');
+    $('ro').textContent = r.value + '%';
+    $('yo').textContent = y.value;
+
+    var dpr = Math.min(devicePixelRatio || 1, 2), W = c.clientWidth, H = c.clientHeight;
+    c.width = W * dpr; c.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    var padB = 18, padT = 6, max = Math.max(last.bal, 1) * 1.05, n = pts.length - 1;
+    var X = function (i) { return (i / Math.max(n, 1)) * (W - 2) + 1; };
+    var Y = function (v) { return padT + (1 - v / max) * (H - padT - padB); };
+
+    // gridlines
+    ctx.strokeStyle = 'rgba(255,255,255,.08)'; ctx.lineWidth = 1;
+    for (var g = 1; g <= 3; g++) { var gy = Math.round(padT + (H - padT - padB) * g / 4) + .5; ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(W, gy); ctx.stroke(); }
+
+    function area(get, color, base) {
+      ctx.beginPath(); ctx.moveTo(X(0), Y(base ? base(0) : 0));
+      for (var i = 0; i <= n; i++) ctx.lineTo(X(i), Y(get(i)));
+      for (var j = n; j >= 0; j--) ctx.lineTo(X(j), Y(base ? base(j) : 0));
+      ctx.closePath(); ctx.fillStyle = color; ctx.fill();
+    }
+    var css = getComputedStyle(document.documentElement);
+    area(function (i) { return pts[i].bal; }, css.getPropertyValue('--growth'), function (i) { return pts[i].paid; });
+    area(function (i) { return pts[i].paid; }, css.getPropertyValue('--you'));
+    // 2px gap line between stacks (surface separation)
+    ctx.beginPath(); for (var k = 0; k <= n; k++) ctx[k ? 'lineTo' : 'moveTo'](X(k), Y(pts[k].paid));
+    ctx.strokeStyle = css.getPropertyValue('--bg'); ctx.lineWidth = 2; ctx.stroke();
+
+    ctx.fillStyle = css.getPropertyValue('--mut'); ctx.font = '12px system-ui, sans-serif';
+    ctx.textBaseline = 'bottom'; ctx.textAlign = 'left'; ctx.fillText('Year 0', 2, H);
+    ctx.textAlign = 'right'; ctx.fillText('Year ' + y.value, W - 2, H);
+
+    XEmbed.storage.set('compound', { m: m.value, r: r.value, y: y.value });
+  }
+  [m, r, y].forEach(function (el) { el.addEventListener('input', draw); });
+  XEmbed.onResize(draw);
+  draw();
+  XEmbed.ready();
+})();
+</script>
+</body>
+</html>

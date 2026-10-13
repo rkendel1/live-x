@@ -1,0 +1,7 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# The build uses Netlify's URL env var automatically; set BASE_URL to use a custom domain.
+[build.environment]
+  NODE_VERSION = "20"

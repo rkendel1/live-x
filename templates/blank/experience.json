@@ -1,0 +1,10 @@
+{
+  "title": "{{TITLE}}",
+  "description": "One or two sentences shown under the card. Keep it under 200 characters.",
+  "width": 480,
+  "height": 480,
+  "accent": "#7c5cff",
+  "tapToStart": false,
+  "draft": true,
+  "fit": "scale"
+}
